@@ -13,13 +13,14 @@ import (
 	"strings"
 
 	"connectrpc.com/connect"
-	"github.com/google/uuid"
 	aiserverv1 "github.com/bengu3/cursor-tab.nvim/cursor-api/gen/aiserver/v1"
 	"github.com/bengu3/cursor-tab.nvim/internal/cursor"
 	"github.com/bengu3/cursor-tab.nvim/internal/suggestionstore"
+	"github.com/google/uuid"
 )
 
 var cursorClient *cursor.Client
+var cursorClientInitErr error
 var store = suggestionstore.NewStore()
 var logger *slog.Logger
 
@@ -33,12 +34,12 @@ type NewSuggestionRequest struct {
 }
 
 type SuggestionResponse struct {
-	Suggestion             string                 `json:"suggestion"`
-	Error                  string                 `json:"error,omitempty"`
-	RangeReplace           *suggestionstore.RangeInfo   `json:"range_replace,omitempty"`
-	NextSuggestionID       string                 `json:"next_suggestion_id,omitempty"`
-	BindingID              string                 `json:"binding_id,omitempty"`
-	ShouldRemoveLeadingEol bool                   `json:"should_remove_leading_eol,omitempty"`
+	Suggestion             string                     `json:"suggestion"`
+	Error                  string                     `json:"error,omitempty"`
+	RangeReplace           *suggestionstore.RangeInfo `json:"range_replace,omitempty"`
+	NextSuggestionID       string                     `json:"next_suggestion_id,omitempty"`
+	BindingID              string                     `json:"binding_id,omitempty"`
+	ShouldRemoveLeadingEol bool                       `json:"should_remove_leading_eol,omitempty"`
 }
 
 // generateSuggestionID creates a unique suggestion ID using UUID
@@ -69,7 +70,11 @@ func handleNewSuggestion(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if cursorClient == nil {
-		json.NewEncoder(w).Encode(SuggestionResponse{Error: "cursor client not initialized"})
+		if cursorClientInitErr != nil {
+			json.NewEncoder(w).Encode(SuggestionResponse{Error: "cursor client not initialized: " + cursorClientInitErr.Error()})
+		} else {
+			json.NewEncoder(w).Encode(SuggestionResponse{Error: "cursor client not initialized"})
+		}
 		return
 	}
 
@@ -515,6 +520,7 @@ func main() {
 
 	cursorClient, err = cursor.NewClient()
 	if err != nil {
+		cursorClientInitErr = err
 		logger.Error("Failed to initialize Cursor client", "error", err)
 	}
 

@@ -10,6 +10,7 @@ Brings Cursor's AI-powered tab completion to Neovim. Get code suggestions as you
 - macOS and Linux are supported
 - curl (for HTTP requests and binary download)
 - sqlite3 (to read Cursor credentials)
+- Go 1.21+, make, and buf CLI if the server binary must be built locally
 
 **Critical:**
 - **Cursor IDE must be installed**
@@ -24,13 +25,29 @@ Cursor auth is read from Cursor's global state database:
 ## Installation
 
 ### lazy.nvim
+
+If you use lazy.nvim's default behavior (`defaults.lazy = false`), this is enough:
+
 ```lua
 {
   "fuyu510/cursor-tab.nvim",
 }
 ```
 
-The plugin auto-runs `setup()` and downloads the appropriate binary for your platform on first run.
+lazy.nvim runs the bundled `build.lua` on install/update, so the server binary is prepared automatically.
+It downloads the release binary first; if no release binary is available, it falls back to building the server locally with `make build`.
+
+If your lazy.nvim config sets `defaults.lazy = true`, add load triggers:
+
+```lua
+{
+  "fuyu510/cursor-tab.nvim",
+  event = "InsertEnter",
+  cmd = { "CursorTab", "CursorTabInstall" },
+}
+```
+
+Without a trigger, lazy.nvim installs the plugin but never loads it, so `:CursorTab` and `:checkhealth cursor-tab` will not be available.
 
 ### packer.nvim
 ```lua
@@ -82,3 +99,4 @@ make build
 ## Config
 
 1. Use `:CursorTab toggle` to enable/disable
+2. Use `:checkhealth cursor-tab` after the plugin has loaded to verify Cursor auth, dependencies, and the server binary.

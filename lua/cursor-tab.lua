@@ -16,6 +16,15 @@ M.debounce_time_ms = 150
 M.enabled = true
 M.pending_job = nil
 M.next_suggestion_id = nil
+M.last_error = nil
+
+function M.notify_error(message)
+	if not message or message == "" or message == M.last_error then
+		return
+	end
+	M.last_error = message
+	vim.notify("cursor-tab: " .. message, vim.log.levels.ERROR)
+end
 
 function M.setup(opts)
 	opts = opts or {}
@@ -208,10 +217,14 @@ function M.get_suggestion(suggestion_id, callback)
 
 				local ok, response = pcall(vim.fn.json_decode, response_text)
 				if ok and response and response.suggestion then
+					M.last_error = nil
 					if callback then
 						callback(response.suggestion, response.range_replace, response.next_suggestion_id, response.should_remove_leading_eol)
 					end
 				else
+					if ok and response and response.error then
+						M.notify_error(response.error)
+					end
 					if callback then
 						callback(nil, nil, nil, false)
 					end
@@ -266,10 +279,14 @@ function M.get_suggestion(suggestion_id, callback)
 
 				local ok, response = pcall(vim.fn.json_decode, response_text)
 				if ok and response and response.suggestion then
+					M.last_error = nil
 					if callback then
 						callback(response.suggestion, response.range_replace, response.next_suggestion_id, response.should_remove_leading_eol)
 					end
 				else
+					if ok and response and response.error then
+						M.notify_error(response.error)
+					end
 					if callback then
 						callback(nil, nil, nil, false)
 					end
