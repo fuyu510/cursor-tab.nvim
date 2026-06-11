@@ -36,6 +36,32 @@ function M.binary_exists(binary_path)
 	return vim.fn.filereadable(binary_path) == 1 and vim.fn.executable(binary_path) == 1
 end
 
+function M.binary_is_stale(binary_path, plugin_dir)
+	local binary_time = vim.fn.getftime(binary_path)
+	if binary_time <= 0 then
+		return true
+	end
+
+	local patterns = {
+		"go.mod",
+		"go.sum",
+		"cmd/**/*.go",
+		"internal/**/*.go",
+		"cursor-api/gen/**/*.go",
+	}
+
+	for _, pattern in ipairs(patterns) do
+		local files = vim.fn.globpath(plugin_dir, pattern, false, true)
+		for _, file in ipairs(files) do
+			if vim.fn.getftime(file) > binary_time then
+				return true
+			end
+		end
+	end
+
+	return false
+end
+
 function M.run_job(args, opts, callback)
 	opts = opts or {}
 	local output = {}
@@ -178,9 +204,27 @@ end
 function M.ensure_binary(plugin_dir)
 	local binary_path = M.get_binary_path(plugin_dir)
 
-	-- Check if binary already exists and is executable
-	if M.binary_exists(binary_path) then
+	-- Check if binary already exists, is executable, and matches the checked-out source.
+	if M.binary_exists(binary_path) and not M.binary_is_stale(binary_path, plugin_dir) then
 		return true
+	end
+
+	if M.binary_exists(binary_path) then
+		vim.notify("cursor-tab: Server binary is stale, rebuilding...", vim.log.levels.INFO)
+		local build_done = false
+		local build_success = false
+		M.build_binary(plugin_dir, function(result)
+			build_success = result
+			build_done = true
+		end)
+		local build_timeout = 300000 -- 5 minutes
+		local build_start = vim.loop.now()
+		while not build_done and (vim.loop.now() - build_start) < build_timeout do
+			vim.wait(100)
+		end
+		if build_success then
+			return true
+		end
 	end
 
 	-- Binary missing or not executable, try to download

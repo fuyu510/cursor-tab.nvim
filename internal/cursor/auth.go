@@ -1,6 +1,8 @@
 package cursor
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -11,10 +13,32 @@ import (
 )
 
 func GetAccessToken() (string, error) {
-	return getCursorStateValue("access token", []string{"cursorAuth/accessToken"})
+	if token := strings.TrimSpace(os.Getenv("CURSOR_TAB_ACCESS_TOKEN")); token != "" {
+		return token, nil
+	}
+	if token := strings.TrimSpace(os.Getenv("CURSOR_AUTH_TOKEN")); token != "" {
+		return token, nil
+	}
+
+	if token, err := getCursorStateValue("access token", []string{"cursorAuth/accessToken"}); err == nil {
+		return token, nil
+	}
+
+	for _, authPath := range cursorAgentAuthCandidates() {
+		token, err := readJSONStringField(authPath, "accessToken")
+		if err == nil && token != "" {
+			return token, nil
+		}
+	}
+
+	return "", fmt.Errorf("Cursor access token not found; checked Cursor state DB and %s", strings.Join(cursorAgentAuthCandidates(), ", "))
 }
 
 func GetMachineID() (string, error) {
+	if machineID := strings.TrimSpace(os.Getenv("CURSOR_TAB_MACHINE_ID")); machineID != "" {
+		return machineID, nil
+	}
+
 	keys := []string{
 		"storage.serviceMachineId",
 		"telemetry.machineId",
@@ -25,7 +49,15 @@ func GetMachineID() (string, error) {
 		keys = append([]string{"telemetry.macMachineId"}, keys...)
 	}
 
-	return getCursorStateValue("machine ID", keys)
+	if machineID, err := getCursorStateValue("machine ID", keys); err == nil {
+		return machineID, nil
+	}
+
+	if machineID, err := localMachineID(); err == nil && machineID != "" {
+		return machineID, nil
+	}
+
+	return "", fmt.Errorf("could not find machine ID in Cursor state DB or local machine-id")
 }
 
 func GetCursorVersion() (string, error) {
@@ -68,6 +100,20 @@ func readCursorStateValue(dbPath, key string) (string, error) {
 	return normalizeCursorStateValue(string(out)), nil
 }
 
+func readJSONStringField(path, key string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+
+	var values map[string]string
+	if err := json.Unmarshal(data, &values); err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(values[key]), nil
+}
+
 func normalizeCursorStateValue(value string) string {
 	value = strings.TrimSpace(value)
 	if value == "" {
@@ -80,6 +126,26 @@ func normalizeCursorStateValue(value string) string {
 	}
 
 	return value
+}
+
+func cursorAgentAuthCandidates() []string {
+	homeDir, _ := os.UserHomeDir()
+	var candidates []string
+
+	if configHome := os.Getenv("XDG_CONFIG_HOME"); configHome != "" {
+		candidates = append(candidates,
+			filepath.Join(configHome, "cursor", "auth.json"),
+			filepath.Join(configHome, "Cursor", "auth.json"),
+		)
+	}
+	if homeDir != "" {
+		candidates = append(candidates,
+			filepath.Join(homeDir, ".config", "cursor", "auth.json"),
+			filepath.Join(homeDir, ".config", "Cursor", "auth.json"),
+		)
+	}
+
+	return dedupeStrings(candidates)
 }
 
 func cursorStateDBPath() (string, error) {
@@ -126,6 +192,24 @@ func cursorStateDBCandidates() []string {
 	default:
 		return nil
 	}
+}
+
+func localMachineID() (string, error) {
+	for _, path := range []string{"/etc/machine-id", "/var/lib/dbus/machine-id"} {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		value := strings.TrimSpace(string(data))
+		if value == "" {
+			continue
+		}
+
+		sum := sha256.Sum256([]byte("cursor-tab:" + value))
+		return hex.EncodeToString(sum[:]), nil
+	}
+
+	return "", fmt.Errorf("local machine-id not found")
 }
 
 func cursorPackageJSONCandidates() []string {

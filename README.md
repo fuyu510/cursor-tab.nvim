@@ -9,18 +9,25 @@ Brings Cursor's AI-powered tab completion to Neovim. Get code suggestions as you
 **System:**
 - macOS and Linux are supported
 - curl (for HTTP requests and binary download)
-- sqlite3 (to read Cursor credentials)
+- sqlite3 (to read Cursor IDE credentials from `state.vscdb`)
 - Go 1.21+, make, and buf CLI if the server binary must be built locally
 
 **Critical:**
-- **Cursor IDE must be installed**
+- **Cursor IDE or Cursor Agent must be installed**
 - **You must be signed into Cursor** (plugin reads your auth token automatically)
 
-Without Cursor installed and authenticated, the plugin won't work.
+Without Cursor installed or Cursor Agent authenticated, the plugin won't work.
 
-Cursor auth is read from Cursor's global state database:
+Cursor auth is read from Cursor's global state database first:
 - macOS: `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb`
 - Linux: `${XDG_CONFIG_HOME:-~/.config}/Cursor/User/globalStorage/state.vscdb`
+
+If the Cursor IDE database is not present, the plugin falls back to Cursor Agent auth:
+- Linux: `${XDG_CONFIG_HOME:-~/.config}/cursor/auth.json`
+
+You can also override auth with environment variables:
+- `CURSOR_TAB_ACCESS_TOKEN` or `CURSOR_AUTH_TOKEN`
+- `CURSOR_TAB_MACHINE_ID`
 
 ## Installation
 
@@ -90,7 +97,7 @@ require("cursor-tab").setup({
 If you prefer to build from source:
 
 ```bash
-# Requirements: Go 1.21+, buf CLI, make
+# Requirements: Go 1.21+ and make; buf CLI is only needed if generated protobuf files are missing
 git clone https://github.com/fuyu510/cursor-tab.nvim ~/.config/nvim/pack/plugins/start/cursor-tab.nvim
 cd ~/.config/nvim/pack/plugins/start/cursor-tab.nvim
 make build

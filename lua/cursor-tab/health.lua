@@ -53,6 +53,24 @@ local function file_exists(path)
 	return path and path ~= "" and vim.fn.filereadable(path) == 1
 end
 
+local function read_json_file(path)
+	if not file_exists(path) then
+		return nil
+	end
+
+	local lines = vim.fn.readfile(path)
+	if not lines or #lines == 0 then
+		return nil
+	end
+
+	local ok_json, decoded = pcall(vim.fn.json_decode, table.concat(lines, "\n"))
+	if ok_json then
+		return decoded
+	end
+
+	return nil
+end
+
 local function state_db_candidates()
 	if vim.env.CURSOR_TAB_STATE_DB and vim.env.CURSOR_TAB_STATE_DB ~= "" then
 		return { vim.env.CURSOR_TAB_STATE_DB }
@@ -81,9 +99,38 @@ local function state_db_candidates()
 	return {}
 end
 
+local function agent_auth_candidates()
+	local candidates = {}
+	if vim.env.CURSOR_AUTH_TOKEN and vim.env.CURSOR_AUTH_TOKEN ~= "" then
+		return candidates
+	end
+	if vim.env.CURSOR_TAB_ACCESS_TOKEN and vim.env.CURSOR_TAB_ACCESS_TOKEN ~= "" then
+		return candidates
+	end
+
+	local home = vim.loop.os_homedir()
+	if vim.env.XDG_CONFIG_HOME and vim.env.XDG_CONFIG_HOME ~= "" then
+		table.insert(candidates, vim.env.XDG_CONFIG_HOME .. "/cursor/auth.json")
+		table.insert(candidates, vim.env.XDG_CONFIG_HOME .. "/Cursor/auth.json")
+	end
+	table.insert(candidates, home .. "/.config/cursor/auth.json")
+	table.insert(candidates, home .. "/.config/Cursor/auth.json")
+	return candidates
+end
+
 local function find_state_db()
 	for _, path in ipairs(state_db_candidates()) do
 		if file_exists(path) then
+			return path
+		end
+	end
+	return nil
+end
+
+local function find_agent_auth()
+	for _, path in ipairs(agent_auth_candidates()) do
+		local data = read_json_file(path)
+		if data and data.accessToken and data.accessToken ~= "" then
 			return path
 		end
 	end
@@ -99,6 +146,10 @@ local function sqlite_has_value(db_path, keys)
 		end
 	end
 	return false, nil
+end
+
+local function has_local_machine_id()
+	return file_exists("/etc/machine-id") or file_exists("/var/lib/dbus/machine-id")
 end
 
 function M.check()
@@ -143,12 +194,6 @@ function M.check()
 		error("curl is required to download the server binary")
 	end
 
-	if vim.fn.executable("sqlite3") == 1 then
-		ok("sqlite3 is executable")
-	else
-		error("sqlite3 is required to read Cursor credentials")
-	end
-
 	if cursor_tab.server_path and installer.binary_exists(cursor_tab.server_path) then
 		ok("Server binary is executable: " .. cursor_tab.server_path)
 	else
@@ -168,6 +213,8 @@ function M.check()
 		info("Cursor state database: " .. db_path)
 
 		if vim.fn.executable("sqlite3") == 1 then
+			ok("sqlite3 is executable")
+
 			local has_token = sqlite_has_value(db_path, { "cursorAuth/accessToken" })
 			if has_token then
 				ok("Cursor access token is present")
@@ -186,11 +233,42 @@ function M.check()
 			else
 				error("Cursor machine ID was not found")
 			end
+		else
+			error("sqlite3 is required to read Cursor state database")
 		end
 	else
-		error("Cursor state database was not found")
+		local auth_path = find_agent_auth()
+		local has_access_token_env = vim.env.CURSOR_TAB_ACCESS_TOKEN and vim.env.CURSOR_TAB_ACCESS_TOKEN ~= ""
+		local has_cursor_auth_env = vim.env.CURSOR_AUTH_TOKEN and vim.env.CURSOR_AUTH_TOKEN ~= ""
+
+		if has_access_token_env or has_cursor_auth_env or auth_path then
+			info("Cursor state database was not found; using Cursor Agent or environment auth")
+		else
+			warn("Cursor state database was not found")
+		end
 		for _, candidate in ipairs(state_db_candidates()) do
 			info("Checked: " .. candidate)
+		end
+
+		if has_access_token_env then
+			ok("Cursor access token is present from CURSOR_TAB_ACCESS_TOKEN")
+		elseif has_cursor_auth_env then
+			ok("Cursor access token is present from CURSOR_AUTH_TOKEN")
+		else
+			if auth_path then
+				ok("Cursor Agent auth token is present")
+				info("Cursor Agent auth file: " .. auth_path)
+			else
+				error("Cursor access token was not found. Open Cursor Agent and run `cursor login`, or set CURSOR_TAB_ACCESS_TOKEN.")
+			end
+		end
+
+		if vim.env.CURSOR_TAB_MACHINE_ID and vim.env.CURSOR_TAB_MACHINE_ID ~= "" then
+			ok("Cursor machine ID is present from CURSOR_TAB_MACHINE_ID")
+		elseif has_local_machine_id() then
+			ok("Local machine ID is available")
+		else
+			error("Cursor machine ID was not found. Set CURSOR_TAB_MACHINE_ID.")
 		end
 	end
 end
