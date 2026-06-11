@@ -2,12 +2,6 @@
 bin/
 cursor-tab-server
 
-# Generated code
-cursor-api/gen/
-
-# Go
-go.sum
-
 # Logs
 *.log
 /tmp/

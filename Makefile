@@ -1,10 +1,15 @@
-.PHONY: build install clean clean-logs generate
+.PHONY: build install clean clean-logs generate ensure-generated
 
 generate:
 	@echo "Generating protobuf code..."
 	buf generate
 
-build: generate
+ensure-generated:
+	@if [ ! -f cursor-api/gen/aiserver/v1/AiServerice.pb.go ] || [ ! -f cursor-api/gen/aiserver/v1/aiserverv1connect/AiServerice.connect.go ]; then \
+		$(MAKE) generate; \
+	fi
+
+build: ensure-generated
 	@echo "Building cursor-tab RPC server..."
 	go build -o bin/cursor-tab-server ./cmd/server
 

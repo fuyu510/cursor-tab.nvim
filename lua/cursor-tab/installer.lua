@@ -27,6 +27,11 @@ function M.get_binary_path(plugin_dir)
 	return plugin_dir .. "/bin/cursor-tab-server"
 end
 
+function M.has_generated_proto(plugin_dir)
+	return vim.fn.filereadable(plugin_dir .. "/cursor-api/gen/aiserver/v1/AiServerice.pb.go") == 1
+		and vim.fn.filereadable(plugin_dir .. "/cursor-api/gen/aiserver/v1/aiserverv1connect/AiServerice.connect.go") == 1
+end
+
 function M.binary_exists(binary_path)
 	return vim.fn.filereadable(binary_path) == 1 and vim.fn.executable(binary_path) == 1
 end
@@ -140,7 +145,7 @@ function M.build_binary(plugin_dir, callback)
 		return false
 	end
 
-	if vim.fn.executable("buf") ~= 1 and vim.fn.isdirectory(plugin_dir .. "/cursor-api/gen") ~= 1 then
+	if vim.fn.executable("buf") ~= 1 and not M.has_generated_proto(plugin_dir) then
 		vim.notify("cursor-tab: Cannot build server binary: buf is required to generate protobuf code", vim.log.levels.ERROR)
 		if callback then
 			callback(false)
