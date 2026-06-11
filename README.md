@@ -7,34 +7,35 @@ Brings Cursor's AI-powered tab completion to Neovim. Get code suggestions as you
 ## Requirements
 
 **System:**
-- **macOS only** (reads Cursor's auth from macOS-specific paths)
+- macOS and Linux are supported
 - curl (for HTTP requests and binary download)
 - sqlite3 (to read Cursor credentials)
 
 **Critical:**
-- **Cursor IDE must be installed** at `/Applications/Cursor.app`
+- **Cursor IDE must be installed**
 - **You must be signed into Cursor** (plugin reads your auth token automatically)
 
 Without Cursor installed and authenticated, the plugin won't work.
+
+Cursor auth is read from Cursor's global state database:
+- macOS: `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb`
+- Linux: `${XDG_CONFIG_HOME:-~/.config}/Cursor/User/globalStorage/state.vscdb`
 
 ## Installation
 
 ### lazy.nvim
 ```lua
 {
-  "bengu3/cursor-tab.nvim",
-  config = function()
-    require("cursor-tab").setup()
-  end,
+  "fuyu510/cursor-tab.nvim",
 }
 ```
 
-The plugin will automatically download the appropriate binary for your platform on first run.
+The plugin auto-runs `setup()` and downloads the appropriate binary for your platform on first run.
 
 ### packer.nvim
 ```lua
 use {
-  "bengu3/cursor-tab.nvim",
+  "fuyu510/cursor-tab.nvim",
   config = function()
     require("cursor-tab").setup()
   end
@@ -43,7 +44,7 @@ use {
 
 ### vim-plug
 ```vim
-Plug 'bengu3/cursor-tab.nvim'
+Plug 'fuyu510/cursor-tab.nvim'
 ```
 
 Add to `init.lua`:
@@ -54,7 +55,7 @@ require("cursor-tab").setup()
 ### Manual Binary Installation
 
 If auto-download fails, you can manually install:
-1. Download the binary for your platform from [Releases](https://github.com/bengu3/cursor-tab.nvim/releases/latest)
+1. Download the binary for your platform from [Releases](https://github.com/fuyu510/cursor-tab.nvim/releases/latest)
 2. Place it at `~/.local/share/nvim/lazy/cursor-tab.nvim/bin/cursor-tab-server` (or equivalent path for your plugin manager)
 3. Make it executable: `chmod +x path/to/cursor-tab-server`
 
@@ -73,7 +74,7 @@ If you prefer to build from source:
 
 ```bash
 # Requirements: Go 1.21+, buf CLI, make
-git clone https://github.com/bengu3/cursor-tab.nvim ~/.config/nvim/pack/plugins/start/cursor-tab.nvim
+git clone https://github.com/fuyu510/cursor-tab.nvim ~/.config/nvim/pack/plugins/start/cursor-tab.nvim
 cd ~/.config/nvim/pack/plugins/start/cursor-tab.nvim
 make build
 ```

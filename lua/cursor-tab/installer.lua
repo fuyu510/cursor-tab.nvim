@@ -42,7 +42,7 @@ function M.download_binary(plugin_dir, callback)
 	end
 
 	local binary_name = "cursor-tab-server-" .. platform
-	local url = string.format("https://github.com/bengu3/cursor-tab.nvim/releases/download/latest/%s", binary_name)
+	local url = string.format("https://github.com/fuyu510/cursor-tab.nvim/releases/download/latest/%s", binary_name)
 
 	local bin_dir = plugin_dir .. "/bin"
 	local binary_path = bin_dir .. "/cursor-tab-server"

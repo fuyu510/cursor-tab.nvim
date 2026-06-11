@@ -12,6 +12,11 @@ go.sum
 *.log
 /tmp/
 
+# Cursor credentials/state
+state.vscdb
+state.vscdb-*
+state.vscdb.*
+
 # IDE
 .vscode/
 .idea/
