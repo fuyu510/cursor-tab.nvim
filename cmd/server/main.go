@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"connectrpc.com/connect"
@@ -80,6 +81,7 @@ func handleNewSuggestion(w http.ResponseWriter, r *http.Request) {
 
 	lines := strings.Split(req.FileContents, "\n")
 	totalLines := int32(len(lines))
+	relativeFilePath := relativeWorkspacePath(req.FilePath, req.WorkspacePath)
 
 	giveDebug := true
 	supportsCpt := true
@@ -87,7 +89,7 @@ func handleNewSuggestion(w http.ResponseWriter, r *http.Request) {
 	streamReq := &aiserverv1.StreamCppRequest{
 		CurrentFile: &aiserverv1.CurrentFileInfo{
 			Contents:              req.FileContents,
-			RelativeWorkspacePath: req.FilePath,
+			RelativeWorkspacePath: relativeFilePath,
 			LanguageId:            req.LanguageID,
 			TotalNumberOfLines:    totalLines,
 			WorkspaceRootPath:     req.WorkspacePath,
@@ -120,6 +122,10 @@ func handleNewSuggestion(w http.ResponseWriter, r *http.Request) {
 	// Parse first suggestion using new early return pattern
 	firstSuggestion, err := parseNextSuggestion(stream)
 	if err != nil {
+		if ctx.Err() == context.Canceled {
+			logger.Info("Request cancelled")
+			return
+		}
 		logger.Error("Failed to parse first suggestion", "error", err)
 		json.NewEncoder(w).Encode(SuggestionResponse{Error: err.Error()})
 		return
@@ -185,6 +191,22 @@ func handleNewSuggestion(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+func relativeWorkspacePath(filePath string, workspacePath string) string {
+	if filePath == "" || workspacePath == "" {
+		return filePath
+	}
+	if !filepath.IsAbs(filePath) {
+		return filePath
+	}
+
+	rel, err := filepath.Rel(workspacePath, filePath)
+	if err != nil || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || rel == ".." {
+		return filePath
+	}
+
+	return filepath.ToSlash(rel)
 }
 
 func parseSuggestions(stream *connect.ServerStreamForClient[aiserverv1.StreamCppResponse]) ([]*suggestionstore.Suggestion, error) {
