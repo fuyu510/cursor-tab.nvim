@@ -43,6 +43,9 @@ M.disabled_buftypes = {
 	quickfix = true,
 	terminal = true,
 }
+M.max_context_lines = 5
+M.accept_key = "<Tab>"
+M.disable_dotfiles = true
 
 function M.notify_error(message)
 	if not message or message == "" or message == M.last_error then
@@ -60,6 +63,18 @@ function M.setup(opts)
 		for _, filetype in ipairs(opts.disabled_filetypes) do
 			M.disabled_filetypes[filetype] = true
 		end
+	end
+
+	if opts.disabled_buftypes then
+		for _, buftype in ipairs(opts.disabled_buftypes) do
+			M.disabled_buftypes[buftype] = true
+		end
+	end
+
+	M.max_context_lines = opts.max_context_lines or M.max_context_lines
+	M.accept_key = opts.accept_key or M.accept_key
+	if opts.disable_dotfiles ~= nil then
+		M.disable_dotfiles = opts.disable_dotfiles
 	end
 
 	if not opts.server_path then
@@ -104,7 +119,7 @@ function M.setup(opts)
 		end,
 	})
 
-	vim.keymap.set("i", "<Tab>", function()
+	vim.keymap.set("i", M.accept_key, function()
 		if M.accept_suggestion() then
 			return ""
 		else
@@ -205,6 +220,13 @@ function M.is_buffer_supported(bufnr)
 	local file_path = vim.api.nvim_buf_get_name(bufnr)
 	if file_path == "" then
 		return false
+	end
+
+	if M.disable_dotfiles then
+		local filename = vim.fn.fnamemodify(file_path, ":t")
+		if filename:sub(1, 1) == "." then
+			return false
+		end
 	end
 
 	return vim.bo[bufnr].modifiable
@@ -334,7 +356,7 @@ function M.trim_existing_context(bufnr, range_replace, suggestion, request_line)
 	end
 
 	local line_count = vim.api.nvim_buf_line_count(bufnr)
-	local max_context_lines = 5
+	local max_context_lines = M.max_context_lines
 
 	local outside_prefix = 0
 	local prefix_limit = math.min(max_context_lines, range_replace.start_line, #suggestion_lines)

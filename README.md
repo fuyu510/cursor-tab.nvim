@@ -105,5 +105,57 @@ make build
 
 ## Config
 
-1. Use `:CursorTab toggle` to enable/disable
-2. Use `:checkhealth cursor-tab` after the plugin has loaded to verify Cursor auth, dependencies, and the server binary.
+### Full Setup Example
+
+```lua
+require("cursor-tab").setup({
+  -- Path to the server binary (auto-detected by default)
+  server_path = nil,
+
+  -- Debounce delay in ms before requesting a suggestion after typing stops
+  debounce_time_ms = 600,
+
+  -- Suppress new requests for this duration (ms) after accepting a suggestion
+  suppress_duration_ms = 1200,
+
+  -- Additional filetypes to disable (merged with built-in defaults)
+  disabled_filetypes = {},
+
+  -- Additional buffer types to disable (merged with built-in defaults)
+  disabled_buftypes = {},
+
+  -- Max lines to compare when trimming overlapping context from suggestions
+  max_context_lines = 5,
+
+  -- Key to accept suggestions in insert mode
+  accept_key = "<Tab>",
+
+  -- Disable suggestions for dotfiles (files starting with '.')
+  -- Prevents sending sensitive config files to Cursor API
+  disable_dotfiles = true,
+})
+```
+
+### Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `server_path` | auto | Custom path to the `cursor-tab-server` binary |
+| `debounce_time_ms` | `600` | Delay (ms) after typing stops before requesting a suggestion |
+| `suppress_duration_ms` | `1200` | Duration (ms) to suppress new requests after accepting a suggestion |
+| `disabled_filetypes` | `{}` | Extra filetypes to disable (added to built-in: `TelescopePrompt`, `prompt`, `neo-tree`, `NvimTree`, `help`, `qf`) |
+| `disabled_buftypes` | `{}` | Extra buffer types to disable (added to built-in: `acwrite`, `help`, `nofile`, `nowrite`, `prompt`, `quickfix`, `terminal`) |
+| `max_context_lines` | `5` | Max lines used to detect and trim overlapping context between suggestions and existing buffer content |
+| `accept_key` | `<Tab>` | Insert-mode key to accept a suggestion |
+| `disable_dotfiles` | `true` | Skip suggestions for dotfiles (files starting with `.`) to prevent sending sensitive configs to Cursor API |
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `:CursorTab toggle` | Toggle enable/disable |
+| `:CursorTab enable` | Enable suggestions |
+| `:CursorTab disable` | Disable suggestions |
+| `:CursorTabInstall` | Re-install the server binary |
+
+Use `:checkhealth cursor-tab` after the plugin has loaded to verify Cursor auth, dependencies, and the server binary.
