@@ -666,6 +666,16 @@ function M.get_suggestion(suggestion_id, callback, request_ctx)
 		}
 
 		local json_data = vim.fn.json_encode(req)
+		local tmpfile = vim.fn.tempname()
+		local f = io.open(tmpfile, "w")
+		if not f then
+			if callback then
+				callback(nil, nil, nil, false)
+			end
+			return
+		end
+		f:write(json_data)
+		f:close()
 
 		M.pending_job = vim.fn.jobstart({
 			"curl",
@@ -675,7 +685,7 @@ function M.get_suggestion(suggestion_id, callback, request_ctx)
 			"-H",
 			"Content-Type: application/json",
 			"-d",
-			json_data,
+			"@" .. tmpfile,
 			M.server_url .. "/suggestion/new",
 		}, {
 			on_stdout = function(_, data)
@@ -707,6 +717,7 @@ function M.get_suggestion(suggestion_id, callback, request_ctx)
 			end,
 			on_exit = function()
 				M.pending_job = nil
+				os.remove(tmpfile)
 			end,
 			stdout_buffered = true,
 		})
