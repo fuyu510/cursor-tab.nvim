@@ -831,17 +831,27 @@ function M.display_suggestion(ctx, suggestion, range_replace, next_suggestion_id
 		local first_line = lines[1] or ""
 		local current_line_text = vim.api.nvim_buf_get_lines(bufnr, ctx.line, ctx.line + 1, false)[1] or ""
 		local overlay_col = M.preview_overlay_col(current_line_text, ctx.col, first_line)
-		local overlay_text = first_line:sub(overlay_col + 1)
 
-		M.current_suggestion = vim.api.nvim_buf_set_extmark(bufnr, M.ns_id, ctx.line, overlay_col, {
-			virt_text = { { overlay_text, "Comment" } },
-			virt_text_pos = "overlay",
-			hl_mode = "combine",
-		})
-
-		for i = 2, #lines do
-			local text = lines[i]
-			table.insert(virt_lines, { { text, "Comment" } })
+		if overlay_col >= ctx.col then
+			-- Suggestion first line aligns with what the user typed: overlay inline
+			local overlay_text = first_line:sub(overlay_col + 1)
+			M.current_suggestion = vim.api.nvim_buf_set_extmark(bufnr, M.ns_id, ctx.line, overlay_col, {
+				virt_text = { { overlay_text, "Comment" } },
+				virt_text_pos = "overlay",
+				hl_mode = "combine",
+			})
+			for i = 2, #lines do
+				table.insert(virt_lines, { { lines[i], "Comment" } })
+			end
+		else
+			-- First line does not match cursor context: show all lines below
+			M.current_suggestion = vim.api.nvim_buf_set_extmark(bufnr, M.ns_id, ctx.line, ctx.col, {
+				virt_text = {},
+				hl_mode = "combine",
+			})
+			for i = 1, #lines do
+				table.insert(virt_lines, { { lines[i], "Comment" } })
+			end
 		end
 
 		if #virt_lines > 0 then
